@@ -1,12 +1,13 @@
 ﻿using System.Configuration;
 using Dache.CacheHost.Configuration;
+using Dache.Core.Configuration;
 
 namespace Dache.Client.Configuration
 {
     /// <summary>
     /// An application configuration section that allows a user to specify cache client settings.
     /// </summary>
-    public class CacheClientConfigurationSection : ConfigurationSection
+    public class CacheClientConfigurationSection : AbstractCacheConfigurationSection
     {
         // The static readonly cache client configuration section of the application configuration
         private static readonly CacheClientConfigurationSection _settings = ConfigurationManager.GetSection("cacheClientSettings") as CacheClientConfigurationSection;

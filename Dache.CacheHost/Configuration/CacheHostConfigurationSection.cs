@@ -2,13 +2,14 @@
 using System.ComponentModel;
 using System.Configuration;
 using Dache.CacheHost.Storage;
+using Dache.Core.Configuration;
 
 namespace Dache.CacheHost.Configuration
 {
     /// <summary>
     /// An application configuration section that allows a user to specify cache host settings.
     /// </summary>
-    public class CacheHostConfigurationSection : ConfigurationSection
+    public class CacheHostConfigurationSection : AbstractCacheConfigurationSection
     {
         // The static readonly cache host configuration section of the application configuration
         private static readonly CacheHostConfigurationSection _settings = ConfigurationManager.GetSection("cacheHostSettings") as CacheHostConfigurationSection;
