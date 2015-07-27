@@ -41,7 +41,9 @@
     <Reference Include="System.Net" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Communication\MulticastUDPCacheHostAutoDetectManager.cs" />
     <Compile Include="Communication\DacheProtocolHelper.cs" />
+    <Compile Include="Communication\ICacheHostAutoDetectManager.cs" />
     <Compile Include="Comparers\GenericComparer.cs" />
     <Compile Include="Communication\ICacheHostContract.cs" />
     <Compile Include="Configuration\AbstractCacheConfigurationSection.cs" />

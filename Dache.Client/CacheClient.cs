@@ -35,6 +35,8 @@ namespace Dache.Client
         // The logger
         private readonly ILogger _logger = null;
 
+        private readonly ICacheHostAutoDetectManager _cacheDiscoveryManager = null;
+
         /// <summary>
         /// The constructor that derives configuration from file.
         /// </summary>
@@ -61,57 +63,15 @@ namespace Dache.Client
             // Configure custom serializer
             _binarySerializer = CustomTypesLoader.LoadSerializer(configuration);
 
-            // Get the cache hosts from configuration
-            var cacheHosts = configuration.CacheHosts;
-
-            // Sanitize
-            if (cacheHosts == null)
-            {
-                throw new ConfigurationErrorsException("At least one cache host must be specified in your application's configuration.");
-            }
-
-            // Get the host redundancy layers from configuration
-            var hostRedundancyLayers = configuration.HostRedundancyLayers;
             CacheHostBucket currentCacheHostBucket = new CacheHostBucket();
 
-            // Assign the cache hosts to buckets in a specified order
-            foreach (CacheHostElement cacheHost in cacheHosts.OfType<CacheHostElement>().OrderBy(i => i.Address).ThenBy(i => i.Port))
+            // checks the auto discover hosts is enabled, in this case hosts configuration will be discarded
+            if (configuration.AutoDetectCacheHosts)
             {
-                // Instantiate a communication client
-                var communicationClient = new CommunicationClient(cacheHost.Address, cacheHost.Port, configuration.HostReconnectIntervalSeconds * 1000, 
-                    configuration.MessageBufferSize, configuration.CommunicationTimeoutSeconds * 1000, configuration.MaximumMessageSizeKB * 1024);
-
-                // Hook up the disconnected and reconnected events
-                communicationClient.Disconnected += OnClientDisconnected;
-                communicationClient.Reconnected += OnClientReconnected;
-
-                // Hook up the message receive event
-                communicationClient.MessageReceived += ReceiveMessage;
-
-                // Add to cache host bucket
-                currentCacheHostBucket.AddCacheHost(communicationClient);
-
-                // check if done with bucket
-                if (currentCacheHostBucket.Count == hostRedundancyLayers + 1)
-                {
-                    _cacheHostBuckets.Add(currentCacheHostBucket);
-                    currentCacheHostBucket = new CacheHostBucket();
-                }
+                _cacheDiscoveryManager = new MulticastUDPCacheHostAutoDetectManager();
             }
 
-            // Final safety check for uneven cache host distributions
-            if (currentCacheHostBucket.Count > 0)
-            {
-                _cacheHostBuckets.Add(currentCacheHostBucket);
-            }
-
-            _logger.Info("Cache Host Assignment", string.Format("Assigned {0} cache hosts to {1} cache host buckets ({2} per bucket)", cacheHosts.Count, _cacheHostBuckets.Count, hostRedundancyLayers + 1));
-
-            // Now attempt to connect to each host
-            foreach (var cacheHostBucket in _cacheHostBuckets)
-            {
-                cacheHostBucket.PerformActionOnAll(c => c.Connect());
-            }
+            PerformCacheHostsFromConfiguration(configuration, currentCacheHostBucket);
         }
 
         /// <summary>
@@ -1080,6 +1040,67 @@ namespace Dache.Client
                         cacheItemExpired(this, new CacheItemExpiredArgs(result));
                     }
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Performs the configuration of cache hosts configured in the application configuration file.
+        /// </summary>
+        /// <param name="configuration">Configuration data.</param>
+        /// <param name="currentCacheHostBucket">Current cache host list.</param>
+        private void PerformCacheHostsFromConfiguration(CacheClientConfigurationSection configuration, CacheHostBucket currentCacheHostBucket)
+        {
+            // Get the host redundancy layers from configuration
+            var hostRedundancyLayers = configuration.HostRedundancyLayers;
+
+            // Get the cache hosts from configuration
+            var cacheHosts = configuration.CacheHosts;
+
+            // Sanitize
+            if (cacheHosts == null)
+            {
+                _logger.Info("No hosts configured", "No cache hosts configured in config file");
+
+                return;
+            }
+
+            // Assign the cache hosts to buckets in a specified order
+            foreach (CacheHostElement cacheHost in cacheHosts.OfType<CacheHostElement>().OrderBy(i => i.Address).ThenBy(i => i.Port))
+            {
+                // Instantiate a communication client
+                var communicationClient = new CommunicationClient(cacheHost.Address, cacheHost.Port, configuration.HostReconnectIntervalSeconds * 1000,
+                    configuration.MessageBufferSize, configuration.CommunicationTimeoutSeconds * 1000, configuration.MaximumMessageSizeKB * 1024);
+
+                // Hook up the disconnected and reconnected events
+                communicationClient.Disconnected += OnClientDisconnected;
+                communicationClient.Reconnected += OnClientReconnected;
+
+                // Hook up the message receive event
+                communicationClient.MessageReceived += ReceiveMessage;
+
+                // Add to cache host bucket
+                currentCacheHostBucket.AddCacheHost(communicationClient);
+
+                // check if done with bucket
+                if (currentCacheHostBucket.Count == hostRedundancyLayers + 1)
+                {
+                    _cacheHostBuckets.Add(currentCacheHostBucket);
+                    currentCacheHostBucket = new CacheHostBucket();
+                }
+            }
+
+            // Final safety check for uneven cache host distributions
+            if (currentCacheHostBucket.Count > 0)
+            {
+                _cacheHostBuckets.Add(currentCacheHostBucket);
+            }
+
+            _logger.Info("Cache Host Assignment", string.Format("Assigned {0} cache hosts to {1} cache host buckets ({2} per bucket)", cacheHosts.Count, _cacheHostBuckets.Count, hostRedundancyLayers + 1));
+
+            // Now attempt to connect to each host
+            foreach (var cacheHostBucket in _cacheHostBuckets)
+            {
+                cacheHostBucket.PerformActionOnAll(c => c.Connect());
             }
         }
 
