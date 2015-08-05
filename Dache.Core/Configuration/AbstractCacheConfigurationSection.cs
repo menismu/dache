@@ -15,16 +15,45 @@ namespace Dache.Core.Configuration
         /// <summary>
         /// Wheter or not to auto detect cache hosts.
         /// </summary>
-        [ConfigurationProperty("autoDetectCacheHosts ", IsRequired = false, DefaultValue = false)]
+        [ConfigurationProperty("autoDetectCacheHosts", IsRequired = false, DefaultValue = false)]
         public bool AutoDetectCacheHosts
         {
             get
             {
-                return (bool)this["autoDetectCacheHosts "];
+                return (bool)this["autoDetectCacheHosts"];
             }
             set
             {
-                this["autoDetectCacheHosts "] = value;
+                this["autoDetectCacheHosts"] = value;
+            }
+        }
+
+        /// <summary>
+        /// IP to connect to the multicast group.
+        /// </summary>
+        [ConfigurationProperty("udpMulticastIp", IsRequired = false)]
+        public string UdpMulticastIp
+        {
+            get
+            {
+                return (string)this["udpMulticastIp"];
+            }
+            set
+            {
+                this["udpMulticastIp"] = value;
+            }
+        }
+
+        [ConfigurationProperty("udpMulticastPort", IsRequired = false)]
+        public int UdpMulticastPort
+        {
+            get
+            {
+                return (int)this["udpMulticastPort"];
+            }
+            set
+            {
+                this["udpMulticastPort"] = value;
             }
         }
     }

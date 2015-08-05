@@ -14,6 +14,7 @@ using Dache.Core.Communication;
 using Dache.Core.Logging;
 using SharpMemoryCache;
 using SimplSockets;
+using System.Net;
 
 namespace Dache.Client
 {
@@ -36,6 +37,8 @@ namespace Dache.Client
         private readonly ILogger _logger = null;
 
         private readonly ICacheHostAutoDetectManager _cacheDiscoveryManager = null;
+
+        private readonly Thread _multicastThread = null;
 
         /// <summary>
         /// The constructor that derives configuration from file.
@@ -68,7 +71,21 @@ namespace Dache.Client
             // checks the auto discover hosts is enabled, in this case hosts configuration will be discarded
             if (configuration.AutoDetectCacheHosts)
             {
-                _cacheDiscoveryManager = new MulticastUDPCacheHostAutoDetectManager();
+                if (configuration.UdpMulticastIp == null)
+                {
+                    throw new ArgumentNullException("UdpMulticastIp");
+                }
+
+                if (!(configuration.UdpMulticastPort > 0))
+                {
+                    throw new ArgumentException("UdpMulticastPort");
+                }
+
+                _logger.Info("Launching multicast", "Launching the auto discover thread to discover cache hosts connected...");
+
+                _cacheDiscoveryManager = new MulticastUDPCacheHostAutoDetectManager(IPAddress.Parse(configuration.UdpMulticastIp), configuration.UdpMulticastPort);
+                _multicastThread = new Thread(new ThreadStart(_cacheDiscoveryManager.Run));
+                _multicastThread.Start();
             }
 
             PerformCacheHostsFromConfiguration(configuration, currentCacheHostBucket);
@@ -792,6 +809,12 @@ namespace Dache.Client
                     foreach (var cacheHostBucket in _cacheHostBuckets)
                     {
                         cacheHostBucket.PerformActionOnAll(c => c.Disconnect());
+                    }
+
+                    // shutdown auto discover thread
+                    if (_cacheDiscoveryManager != null)
+                    {
+                        _cacheDiscoveryManager.TryStop();
                     }
 
                     // If we got here we succeeded
